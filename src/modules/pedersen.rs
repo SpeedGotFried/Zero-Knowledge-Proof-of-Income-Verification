@@ -31,3 +31,29 @@ impl PedersenCommitment {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::rngs::OsRng;
+
+    #[test]
+    fn test_homomorphic_property() {
+        let pc = PedersenCommitment::new();
+        let mut rng = OsRng;
+
+        let v1 = 100u64;
+        let r1 = Scalar::random(&mut rng);
+        let c1 = pc.commit(v1, r1);
+
+        let v2 = 200u64;
+        let r2 = Scalar::random(&mut rng);
+        let c2 = pc.commit(v2, r2);
+
+        let v_sum = v1 + v2;
+        let r_sum = r1 + r2;
+        let c_sum = pc.commit(v_sum, r_sum);
+
+        assert_eq!(c1 + c2, c_sum, "Homomorphic property failed: C(v1)+C(v2) != C(v1+v2)");
+    }
+}
