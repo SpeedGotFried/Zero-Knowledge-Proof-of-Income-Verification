@@ -24,11 +24,12 @@
 
 ## ☁️ Parallel Track: AWS Infrastructure (Terraform)
 - [ ] **Terraform Module Setup**:
-    - [ ] Create reusable `static-site` module (S3 + CloudFront).
+    - [x] Create reusable `static-site` module (S3 + CloudFront).
+    - [ ] **Multi-Env Support**: Add `env` variable (dev/prod) for unique bucket naming (`zkp-dev`, `zkp-prod`) and separate state files.
     - [ ] **Deploy Portal 1**: Bank Console (`/apps/bank-portal`).
     - [ ] **Deploy Portal 2**: Prover Wallet (`/apps/prover-wallet`).
     - [ ] **Deploy Portal 3**: Verifier Service (`/apps/verifier-service`).
-- [ ] **CI/CD**: GitHub Actions to build and sync all 3 apps to respective buckets.
+- [ ] **CI/CD**: GitHub Actions to build and sync all 3 apps to respective buckets based on branch (main->prod, dev->dev).
 
 ## 💻 Parallel Track: Frontend Portals (React + Vite + Tailwind)
 - [x] **Scaffolding**: Create directory placeholders for all 3 apps.
