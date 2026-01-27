@@ -1,48 +1,84 @@
-# Zero-Knowledge Proof of Income Verification - Project Plan
+# Zero-Knowledge Proof of Income Verification - 8 Week Plan
 
-**Goal**: Build a privacy-preserving income verification system using a **Delegated Verification** model. The Prover proves income to a Trusted 3rd Party (Bank/Oracle) via ZKP. The Bank verifies the ZKP and issues a "Certified Token", which the Prover presents to the final Verifier.
+**Goal**: Build a privacy-preserving income verification system using a **Delegated Verification** model.
+**Timeline**: 8 Weeks
+**Current Status**: Week 1 Completed. Starting Week 2.
 
-**Timeline**: 8-10 Weeks
+## 📅 Week 1: Core Cryptography & Fundamentals (✅ COMPLETED)
+- [x] **Project Setup**: Initialize Rust project structure.
+- [x] **Cryptographic Primitives**: Setup `curve25519-dalek`.
+- [x] **Pedersen Commitments**:
+    - [x] Implement `Commit(value, randomness) -> C` in `src/modules/pedersen.rs`.
+- [x] **Issuer Module**:
+    - [x] Implement Signing/Key generation in `src/modules/issuer.rs`.
+- [x] **Prover Structure**:
+    - [x] Basic struct definitions in `src/modules/prover.rs`.
 
-## 📅 Week 1-2: Commitments & Infrastructure (COMPLETED)
-- [x] **Define System Architecture**: Issuer (Employer), Prover (User), Bank (Oracle), Verifier (Service).
-- [x] **Cryptographic Primitives**: Implement elliptic curves (Ristretto255/Curve25519).
-- [x] **Pedersen Commitments**: Implement `Commit(value, randomness) -> C`.
-- [x] **Issuer Module**: Ability to sign commitments.
-- [x] **Unit Tests**: Verify homomorphic properties.
+## 📅 Week 2: Zero-Knowledge Proof Logic (Range Proofs) (🔄 IN PROGRESS)
+- [ ] **Research & Setup**:
+    - [ ] Add `bulletproofs` and `merlin` dependencies to `Cargo.toml`.
+    - [ ] Understand Bulletproofs API for Range Proofs.
+- [ ] **Implementation**:
+    - [ ] Create `src/modules/zkp.rs`.
+    - [ ] Implement `prove_range(commitment, value, blinding_factor)`: Generates ZKP that value is within range (e.g., > Threshold).
+    - [ ] Implement `verify_range(proof, commitment)`: Verifies ZKP without knowing value.
+- [ ] **Testing**:
+    - [ ] Unit tests: Valid proof passes.
+    - [ ] Unit tests: Tampered proof fails.
+    - [ ] Unit tests: Wrong value range fails.
 
-## 📅 Week 3-4: ZKP & Delegated Verification logic
-- [ ] **Prover -> Bank (ZKP)**:
-    - [ ] Implement Range Proof (Bulletproofs): `Income >= T`.
-    - [ ] Prover generates logic to send `Proof(C, T)` to Bank.
-- [ ] **Bank (Trusted Oracle) Logic**:
-    - [ ] Verify ZKP from Prover without seeing `Income`.
-    - [ ] **Attestation**: If valid, sign a new assertion: `Sig(ProverID, T, "Verified")`.
-- [ ] **Prover -> Verifier (Exchange)**:
-    - [ ] Prover receives Bank's signature.
-    - [ ] Prover forwards Bank's signature to Final Verifier (Landlord/Service).
+## 📅 Week 3: The "Bank" Oracle Service (Backend)
+- [ ] **API Design**: Define the request/response structure between Prover and Bank.
+- [ ] **Bank Logic (Rust)**:
+    - [ ] Create `Bank` struct/service.
+    - [ ] Method to receive `(Commitment, Proof)`.
+    - [ ] Logic: Verify Proof -> If valid, Sign `(Commitment, "Approved")`.
+- [ ] **Replay Protection**: Ensure same proof cannot be reused if necessary.
+- [ ] **Server Setup**: Wrap this logic in a simple HTTP server (e.g., using Axum or Warp) or prep for Lambda.
 
-## ☁️ Parallel Track: AWS Infrastructure (Terraform)
-- [ ] **Terraform Module Setup**:
-    - [x] Create reusable `static-site` module (S3 + CloudFront).
-    - [ ] **Multi-Env Support**: Add `env` variable (dev/prod) for unique bucket naming (`zkp-dev`, `zkp-prod`) and separate state files.
-    - [ ] **Deploy Portal 1**: Bank Console (`/apps/bank-portal`).
-    - [ ] **Deploy Portal 2**: Prover Wallet (`/apps/prover-wallet`).
-    - [ ] **Deploy Portal 3**: Verifier Service (`/apps/verifier-service`).
-- [ ] **CI/CD**: GitHub Actions to build and sync all 3 apps to respective buckets based on branch (main->prod, dev->dev).
+## 📅 Week 4: Frontend 1 - Prover Wallet (User Side)
+- [ ] **Project Init**: Initialize React + Vite + Tailwind app in `apps/prover-wallet`.
+- [ ] **WASM Integration**:
+    - [ ] Compile Rust ZKP logic to WASM (`wasm-pack`).
+    - [ ] Expose `generate_proof` and `generate_commitment` to JS.
+- [ ] **UI Implementation**:
+    - [ ] Input Form: Salary Amount.
+    - [ ] Action: "Generate Proof" (Client-side computation).
+    - [ ] Network: Send Proof to Bank API.
+    - [ ] Display: Show "Verified Token" received from Bank.
 
-## 💻 Parallel Track: Frontend Portals (React + Vite + Tailwind)
-- [x] **Scaffolding**: Create directory placeholders for all 3 apps.
-- [ ] **Portal 1: Bank/Oracle Console**
-    - [ ] **Role**: Trusted Intermediary.
-    - [ ] **Features**: Receive ZKP requests, Automated Verification, Issue "Verified" Tokens.
-- [ ] **Portal 2: Prover Wallet (User)**
-    - [ ] **Features**: Dashboard to view Income `C`, drag-and-drop to "Apply for Verification" (Generates ZKP -> Sends to Bank -> Gets Token).
-- [ ] **Portal 3: Final Verifier Portal (Service)**
-    - [ ] **Features**: Simple check: "Is this Bank Token valid?".
-    - [ ] **Benefit**: Does not need to run heavy crypto verification, just checks Bank's signature.
+## � Week 5: Frontend 2 & 3 - Bank Console & Verifier Portal
+- [ ] **Bank Portal (`apps/bank-portal`)**:
+    - [ ] Scaffolding: React + Vite.
+    - [ ] Dashboard: View incoming requests and stats (Logs).
+- [ ] **Verifier Portal (`apps/verifier-service`)**:
+    - [ ] Scaffolding: React + Vite.
+    - [ ] UI: "Verify Token" Page.
+    - [ ] Logic: Upload/Paste Token -> Verify Bank's Signature -> Show "Valid Income" badge.
 
-## 📅 Week 7-8: Integration & Security
-- [ ] **End-to-End Flow**: Prover -> Bank (Oracle) -> User Device -> Final Verifier.
-- [ ] **Security Audit**: Ensure Bank cannot revert ZKP to find plain income.
-- [ ] **Documentation**: Sequence diagrams for the 3-party flow.
+## 📅 Week 6: System Integration
+- [ ] **End-to-End Connection**:
+    - [ ] Connect Prover App -> Bank API.
+    - [ ] Connect Prover App -> Verifier App (via copy-paste or QR code of Token).
+- [ ] **Error Handling**: Handle network failures, invalid proofs, server errors.
+- [ ] **Refinement**: Improve UI/UX flow based on testing.
+
+## 📅 Week 7: AWS Infrastructure & Deployment
+- [ ] **Terraform Modules Refinement**:
+    - [ ] Finalize `static-site` for 3 frontends.
+    - [ ] Create `api-gateway` + `lambda` module for Bank Backend (Rust).
+- [ ] **Multi-Env Setup**:
+    - [ ] Ensure `dev` and `prod` state separation works.
+    - [ ] `connect.dev` / `connect.prod` scripts usage.
+- [ ] **CI/CD**:
+    - [ ] GitHub Actions for automated build & deploy.
+
+## 📅 Week 8: Security Audit & Final Release
+- [ ] **Security Review**:
+    - [ ] Review commitment hiding properties.
+    - [ ] Ensure non-interactive zero-knowledge.
+    - [ ] Audit dependencies.
+- [ ] **Documentation**:
+    - [ ] Write API Docs.
+    - [ ] Create Architecture Diagrams.
+- [ ] **Final Demo**: Prepare a walkthrough video/live demo script.
