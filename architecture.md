@@ -57,3 +57,6 @@ The system enables a **Prover** (User) to prove to a **Verifier** (Bank/Service)
     *   Verifier checks `VerifySig`($PK_{Issuer}, C, \sigma$).
     *   Verifier checks `VerifyZKP`($C, T, \pi$).
     *   If both pass, income is verified.
+
+
+
