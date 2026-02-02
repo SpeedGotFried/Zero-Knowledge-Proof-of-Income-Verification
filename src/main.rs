@@ -1,59 +1,109 @@
-#![allow(dead_code)]
-#![allow(unused_imports)]
-#![allow(non_snake_case)]
+use axum::{
+    routing::{get, post},
+    Router,
+    Json,
+    http::Method,
+};
+use tower_http::cors::{Any, CorsLayer};
+use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
+use std::sync::{Arc, Mutex};
+use curve25519_dalek::ristretto::CompressedRistretto;
 
 mod modules;
+use modules::bank::Bank;
 
-use modules::issuer::{Issuer, verify_signature};
-use modules::prover::Prover;
-use modules::pedersen::PedersenCommitment;
-use curve25519_dalek::scalar::Scalar;
-use rand::rngs::OsRng;
+// Request Payload
+#[derive(Deserialize)]
+struct ProofRequest {
+    c_income_hex: String,
+    c_used_hex: String,
+    c_rent_hex: String,
+    proof_hex: String,
+}
 
-fn main() {
-    println!("=== Privacy-Preserving Income Verification (Rust Prototype) ===");
-    println!("=== Week 1-2: Commitments & Signatures ===");
+// Response Payload
+#[derive(Serialize)]
+struct ProofResponse {
+    success: bool,
+    message: String,
+    signature: Option<String>,
+}
 
-    // 1. Setup
-    let pc = PedersenCommitment::new();
-    let issuer = Issuer::new();
-    let issuer_pk = issuer.get_public_key();
-    println!("[1] Issuer setup complete. Public Key generated.");
+// Shared State
+struct AppState {
+    bank: Bank,
+}
 
-    // 2. Issuance
-    let income: u64 = 75000;
-    println!("[2] User requesting attestation for Income: ${}", income);
+#[tokio::main]
+async fn main() {
+    // Initialize Bank Logic
+    let bank = Bank::new();
+    let state = Arc::new(Mutex::new(AppState { bank }));
+
+    println!("Starting Bank Oracle Server on port 3000...");
+    println!("Public Key: {}", state.lock().unwrap().bank.get_public_key_hex());
+
+    // CORS: Allow frontend to talk to backend
+    let cors = CorsLayer::new()
+        .allow_origin(Any) // For demo. In prod strict origin.
+        .allow_methods([Method::GET, Method::POST])
+        .allow_headers(Any);
+
+    let app = Router::new()
+        .route("/health", get(health_check))
+        .route("/verify", post(handle_verification))
+        .layer(cors)
+        .with_state(state);
+
+    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}
+
+async fn health_check() -> &'static str {
+    "Bank Oracle is Online"
+}
+
+// Handler
+async fn handle_verification(
+    axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
+    Json(payload): Json<ProofRequest>,
+) -> Json<ProofResponse> {
     
-    let mut rng = OsRng;
-    let randomness = Scalar::random(&mut rng);
-    
-    // Commit to income: C = v*G + r*H
-    let commitment = pc.commit(income, randomness);
-    println!("    Committed to income.");
-    
-    // Sign the commitment
-    let signature = issuer.sign_commitment(commitment);
-    println!("    Issuer created Schnorr signature on commitment.");
+    // 1. Decode Hex Inputs
+    let decode_point = |hex_str: &str| -> Result<CompressedRistretto, String> {
+        let bytes = hex::decode(hex_str).map_err(|_| "Invalid Hex".to_string())?;
+        if bytes.len() != 32 { return Err("Invalid Point Length".to_string()); }
+        let arr: [u8; 32] = bytes.try_into().unwrap();
+        Ok(CompressedRistretto(arr))
+    };
 
-    // 3. Prover receives it
-    let mut alice = Prover::new("Alice");
-    alice.receive_credential(commitment, randomness, signature);
-    println!("[3] Alice received credential (C, r, sig).");
+    let c_income = match decode_point(&payload.c_income_hex) { Ok(p) => p, Err(e) => return error_response(e) };
+    let c_used = match decode_point(&payload.c_used_hex) { Ok(p) => p, Err(e) => return error_response(e) };
+    let c_rent = match decode_point(&payload.c_rent_hex) { Ok(p) => p, Err(e) => return error_response(e) };
+    
+    let proof_bytes = match hex::decode(&payload.proof_hex) {
+        Ok(b) => b,
+        Err(_) => return error_response("Invalid Proof Hex".to_string())
+    };
 
-    // 4. Verification (Bank) - Week 1-2 Scope: Verify Sig on C
-    println!("[4] Alice presents (C, Sig) to Bank (Verifier).");
-    if let Some((c_presented, sig_presented)) = alice.present_commitment() {
-        // Bank checks if Sig is valid on C using Issuer PK
-        let is_valid = verify_signature(issuer_pk, c_presented, &sig_presented);
-        
-        if is_valid {
-            println!("    [SUCCESS] Bank verified the Issuer's signature on the Commitment!");
-            println!("    The commitment is authentic. The value inside is hidden.");
-            println!("    Upcoming (Week 3-4): Proving value inside C >= Threshold.");
-        } else {
-            println!("    [FAILURE] Signature invalid!");
-        }
-    } else {
-        println!("    [ERROR] No credential.");
+    // 2. Call Bank Logic
+    let bank = &state.lock().unwrap().bank; // Lock mutex
+    match bank.process_verification_request(c_income, c_used, c_rent, &proof_bytes) {
+        Ok(sig) => Json(ProofResponse {
+            success: true,
+            message: "Proof Verified & Signed".to_string(),
+            signature: Some(sig),
+        }),
+        Err(err_msg) => error_response(err_msg)
     }
+}
+
+fn error_response(msg: String) -> Json<ProofResponse> {
+    Json(ProofResponse {
+        success: false,
+        message: msg,
+        signature: None,
+    })
 }
