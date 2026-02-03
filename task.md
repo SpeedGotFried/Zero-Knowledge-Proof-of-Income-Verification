@@ -68,19 +68,19 @@
 
 - [x] **Setup**: `apps/user-portal` (React + Vite). (Renamed from `prover-wallet`)
 - [x] **Step 1 UI**: Login/Register (Identity Binding). (Implemented `IdentityBinding.jsx`)
-- [ ] **Step 2 UI**: "Upload Documents" (Triggers Ephemeral `/prove`).
-- [ ] **Step 3 UI**: Selector for "Bank Loan" or "Rental Application".
+- [x] **Step 2 UI**: "Upload Documents" (Triggers Ephemeral `/prove`). (Implemented `Dashboard.jsx`)
+- [x] **Step 3 UI**: Selector for "Bank Loan" or "Rental Application". (Implemented `Dashboard.jsx`)
 - [ ] **Step 5 UI**: Display Generated Proof Certificate.
 
 ## 📅 Week 5: Verifier Portals (Bank & Landlord)
 *Matches `bank_portal` and `verifier_service` infrastructure.*
 
-- [ ] **Bank Portal**:
-    - [ ] Dashboard: Set Loan Thresholds.
-    - [ ] Verify: Check Loan Application Proofs.
+- [x] **Bank Portal**:
+    - [x] Dashboard: Set Loan Thresholds. (Implemented `BankGuard UI`)
+    - [x] Verify: Check Loan Application Proofs. (Implemented `Verification Console`)
 - [x] **Landlord Portal**:
-    - [ ] Dashboard: Set Rental Multipliers.
-    - [ ] Verify: Check Tenant Application Proofs. (Renamed from `verifier-service`)
+    - [x] Dashboard: Set Rental Multipliers. (Implemented `PropVerify UI`)
+    - [x] Verify: Check Tenant Application Proofs. (Renamed from `verifier-service`)
 
 ## 📅 Week 6: System Integration
 - [ ] **End-to-End**: User Upload -> Circom Backend -> Bank Verifier.

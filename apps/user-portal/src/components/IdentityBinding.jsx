@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
 import axios from 'axios';
 
-const IdentityBinding = () => {
+const IdentityBinding = (props) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isRegistered, setIsRegistered] = useState(false);
     const [publicKey, setPublicKey] = useState('');
@@ -28,6 +28,7 @@ const IdentityBinding = () => {
 
             if (response.data.success) {
                 setIsRegistered(true);
+                if (props.onRegisterSuccess) props.onRegisterSuccess();
             } else {
                 setError(response.data.message || "Registration failed");
             }
