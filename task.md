@@ -2,7 +2,7 @@
 
 **Goal**: Build a privacy-preserving income verification system.
 **Tech Stack**: React (Portals) + Rust (Backend) + Circom (ZKP Circuits).
-**Current Status**: Week 3 (Identity/DB) Prototype Complete. **Starting Week 2 (Circom Circuit Design)**.
+**Current Status**: **Prioritizing Week 4 & 5 (Frontend Development)**. Backend/Circom paused.
 
 ## 🏗️ System Architecture: The Three-Portals Model
 1.  **User Portal** (`apps/user-portal`):
@@ -66,8 +66,8 @@
 ## 📅 Week 4: User Portal (Common Interface)
 *Matches `prover_wallet` infrastructure.*
 
-- [ ] **Setup**: `apps/user-portal` (React + Vite).
-- [ ] **Step 1 UI**: Login/Register (Identity Binding).
+- [x] **Setup**: `apps/user-portal` (React + Vite). (Renamed from `prover-wallet`)
+- [x] **Step 1 UI**: Login/Register (Identity Binding). (Implemented `IdentityBinding.jsx`)
 - [ ] **Step 2 UI**: "Upload Documents" (Triggers Ephemeral `/prove`).
 - [ ] **Step 3 UI**: Selector for "Bank Loan" or "Rental Application".
 - [ ] **Step 5 UI**: Display Generated Proof Certificate.
@@ -78,9 +78,9 @@
 - [ ] **Bank Portal**:
     - [ ] Dashboard: Set Loan Thresholds.
     - [ ] Verify: Check Loan Application Proofs.
-- [ ] **Landlord Portal**:
+- [x] **Landlord Portal**:
     - [ ] Dashboard: Set Rental Multipliers.
-    - [ ] Verify: Check Tenant Application Proofs.
+    - [ ] Verify: Check Tenant Application Proofs. (Renamed from `verifier-service`)
 
 ## 📅 Week 6: System Integration
 - [ ] **End-to-End**: User Upload -> Circom Backend -> Bank Verifier.
