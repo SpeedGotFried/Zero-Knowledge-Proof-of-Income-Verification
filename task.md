@@ -1,88 +1,98 @@
-# Zero-Knowledge Proof of Income Verification - 8 Week Plan
+# Zero-Knowledge Proof of Income Verification - Master Plan
 
-**Goal**: Build a privacy-preserving income verification system using a **Delegated Verification** model.
-**Timeline**: 8 Weeks
-**Current Status**: Week 1 Completed. Starting Week 2.
+**Goal**: Build a privacy-preserving income verification system.
+**Tech Stack**: React (Portals) + Rust (Backend) + Circom (ZKP Circuits).
+**Current Status**: Week 3 (Identity/DB) Prototype Complete. **Starting Week 2 (Circom Circuit Design)**.
+
+## 🏗️ System Architecture: The Three-Portals Model
+1.  **User Portal** (`apps/user-portal`):
+    *   The **ONLY** place sensitive data (Payslips) is uploaded.
+    *   Handles Identity Binding & Use Case Selection (Loan vs Rental).
+2.  **ZKP Verification Engine** (`backend` on AWS):
+    *   The "Brain". **Stateless & Ephemeral**.
+    *   Executes **Circom C++** binaries to generate proofs.
+    *   **Rule**: "Raw income data is never stored. Wiped from RAM immediately."
+3.  **Verifier Portals** (`apps/verifier-portals`):
+    *   **Bank Portal**: Defines Loan Rules (Income >= X). Verifies Proofs.
+    *   **Landlord Portal**: Defines Rental Rules (Income >= 3x Rent). Verifies Proofs.
+
+## 🔄 The 7-Step Privacy Workflow
+1.  **Identity** (User Portal): User binds ID to Crypto Key.
+2.  **Upload** (User Portal): User connects source/uploads payslip for *ephemeral* use.
+3.  **Use Case** (User Portal): "Apply for Loan" or "Rental".
+4.  **Rules** (Backend): System fetches Thresholds from Bank/Landlord.
+5.  **Prove** (Backend): Engine computes `Salary >= Threshold` ZK Proof.
+6.  **Submit** (Network): Proof sent to Verifier.
+7.  **Verify** (Verifier Portal): Cryptographic check -> Decision (Eligible/Not Eligible).
+
+---
 
 ## 📅 Week 1: Core Cryptography & Fundamentals (✅ COMPLETED)
 - [x] **Project Setup**: Initialize Rust project structure.
-- [x] **Cryptographic Primitives**: Setup `curve25519-dalek`.
-- [x] **Pedersen Commitments**:
-    - [x] Implement `Commit(value, randomness) -> C` in `src/modules/pedersen.rs`.
-- [x] **Issuer Module**:
-    - [x] Implement Signing/Key generation in `src/modules/issuer.rs`.
-- [x] **Prover Structure**:
-    - [x] Basic struct definitions in `src/modules/prover.rs`.
+- [x] **Primitives**: `curve25519-dalek` (Kept for Signatures).
 
-## 📅 Week 2: Zero-Knowledge Proof Logic (Range Proofs) (✅ COMPLETED)
-- [x] **Research & Setup**:
-    - [x] Add `bulletproofs` and `merlin` dependencies to `Cargo.toml`.
-    - [x] Understand Bulletproofs API for Range Proofs.
-- [x] **Implementation**:
-    - [x] Create `src/modules/zkp.rs`.
-    - [x] Implement `prove_range(commitment, value, blinding_factor)`: Generates ZKP that value is within range (e.g., > Threshold).
-    - [x] Implement `verify_range(proof, commitment)`: Verifies ZKP without knowing value.
-- [x] **Testing**:
-    - [x] Unit tests: Valid proof passes.
-    - [x] Unit tests: Tampered proof fails.
-    - [x] Unit tests: Wrong value range fails.
+## 📅 Week 2: Circom Circuit Design (🔄 REFACTORING)
+*Goal: Programmable Privacy using Circom.*
 
-## 📅 Week 3: The "Bank" Oracle Service (Backend)
-- [x] **API Design**: Define the request/response structure between Prover and Bank.
-- [x] **Bank Logic (Rust)**:
-    - [x] Create `Bank` struct/service.
-    - [x] Method to receive `(Commitment, Proof)`.
-    - [x] Logic: Verify Proof -> If valid, Sign `(Commitment, "Approved")`.
-- [x] **Replay Protection**: Ensure same proof cannot be reused if necessary.
-- [x] **Server Setup**: Wrap this logic in a simple HTTP server (e.g., using Axum or Warp) or prep for Lambda.
+- [ ] **Setup Environment**:
+    - [ ] Install `circom` (v2.1) + `snarkjs`.
+    - [ ] Structure: `circuits/main/`, `circuits/scripts/`.
+- [ ] **Circuit Logic (`income.circom`)**:
+    - [ ] Template: `IncomeCheck()`.
+    - [ ] Private Input: `salary`. Public Input: `threshold`.
+    - [ ] Constraint: `salary >= threshold`.
+- [ ] **Compilation Pipeline**:
+    - [ ] Compile to C++: `circom income.circom --r1cs --wasm --sym --c`.
+    - [ ] Build binary: `cd income_cpp && make`.
+- [ ] **Trusted Setup (Groth16)**:
+    - [ ] Phase 1: `snarkjs powersoftau ...` (BN128).
+    - [ ] Phase 2: `snarkjs zkey ...` -> Export `verification_key.json`.
 
-## 📅 Week 4: Frontend 1 - Prover Wallet (User Side)
-- [x] **Project Init**: Initialize React + Vite + Tailwind app in `apps/prover-wallet`.
-- [x] **WASM Integration**:
-    - [x] Compile Rust ZKP logic to WASM (`wasm-pack`).
-    - [x] Expose `generate_proof` and `generate_commitment` to JS.
-- [x] **UI Implementation**:
-    - [x] Input Form: Salary Amount.
-    - [x] Action: "Generate Proof" (Client-side computation).
-    - [x] Network: Send Proof to Bank API.
-    - [x] Display: Show "Verified Token" received from Bank.
+## 📅 Week 3: ZKP Verification Engine (Circom Integration)
+*Goal: Rust Backend executing C++ Witness Generators (No JS).*
 
-## 📅 Week 5: Frontend 2 & 3 - Bank Console & Verifier Portal
-- [x] **Bank Portal (`apps/bank-portal`)**:
-    - [x] Scaffolding: React + Vite.
-    - [x] Dashboard: View incoming requests and stats (Logs).
-- [x] **Verifier Portal (`apps/verifier-service`)**:
-    - [x] Scaffolding: React + Vite.
-    - [x] UI: "Verify Token" Page.
-    - [x] Logic: Upload/Paste Token -> Verify Bank's Signature -> Show "Valid Income" badge.
-- [x] **Developer Tools**:
-    - [x] Script `misc-scripts/run_frontends.sh` to run all apps concurrently.
+- [x] **Identity & Persistence**:
+    - [x] DynamoDB Schema (`PK=USER#...`).
+    - [x] `POST /register`: Identity Binding.
+- [ ] **Prover Engine (`/prove`)**:
+    - [ ] **Input**: Receive `salary`, `threshold`.
+    - [ ] **Exec**: Run `./income_check input.json witness.wtns` (C++).
+    - [ ] **Prove**: Run `rapidsnark` or `ark-groth16` -> Proof JSON.
+    - [ ] **WIPE**: Securely delete `input.json` & `witness.wtns`.
+- [ ] **Verifier Logic (`/verify`)**:
+    - [ ] Load `verification_key.json`.
+    - [ ] Validate Proof vs Threshold.
 
-## 📅 Week 6: System Integration (✅ COMPLETED)
-- [x] **End-to-End Connection**:
-    - [x] Connect Prover App -> Bank API.
-    - [x] Connect Prover App -> Verifier App (via copy-paste or QR code of Token).
-- [x] **Error Handling**: Handle network failures, invalid proofs, server errors.
-- [x] **Refinement**: Improve UI/UX flow based on testing.
+## 📅 Week 4: User Portal (Common Interface)
+*Matches `prover_wallet` infrastructure.*
 
-## 📅 Week 7: AWS Infrastructure & Deployment
-- [x] **Terraform Modules Refinement** (Code Generated) <!-- id: 39 -->
-    - [x] Finalize `static-site` for 3 frontends (`apps/*` -> S3). <!-- id: 40 -->
-    - [x] Create `api-gateway` + `lambda` module for Bank Backend. <!-- id: 41 -->
-- [ ] **Multi-Env Setup**:
-    - [ ] Ensure `dev` and `prod` state separation works.
-- [ ] **Multi-Env Setup**:
-    - [ ] Ensure `dev` and `prod` state separation works.
-    - [ ] `connect.dev` / `connect.prod` scripts usage.
-- [ ] **CI/CD**:
-    - [ ] GitHub Actions for automated build & deploy.
+- [ ] **Setup**: `apps/user-portal` (React + Vite).
+- [ ] **Step 1 UI**: Login/Register (Identity Binding).
+- [ ] **Step 2 UI**: "Upload Documents" (Triggers Ephemeral `/prove`).
+- [ ] **Step 3 UI**: Selector for "Bank Loan" or "Rental Application".
+- [ ] **Step 5 UI**: Display Generated Proof Certificate.
 
-## 📅 Week 8: Security Audit & Final Release
-- [ ] **Security Review**:
-    - [ ] Review commitment hiding properties.
-    - [ ] Ensure non-interactive zero-knowledge.
-    - [ ] Audit dependencies.
-- [ ] **Documentation**:
-    - [ ] Write API Docs.
-    - [ ] Create Architecture Diagrams.
-- [ ] **Final Demo**: Prepare a walkthrough video/live demo script.
+## 📅 Week 5: Verifier Portals (Bank & Landlord)
+*Matches `bank_portal` and `verifier_service` infrastructure.*
+
+- [ ] **Bank Portal**:
+    - [ ] Dashboard: Set Loan Thresholds.
+    - [ ] Verify: Check Loan Application Proofs.
+- [ ] **Landlord Portal**:
+    - [ ] Dashboard: Set Rental Multipliers.
+    - [ ] Verify: Check Tenant Application Proofs.
+
+## 📅 Week 6: System Integration
+- [ ] **End-to-End**: User Upload -> Circom Backend -> Bank Verifier.
+- [ ] **Performance**: Benchmark C++ generation speed.
+
+## 📅 Week 7: AWS Deployment (ZKP Engine)
+- [ ] **Dockerization**:
+    - [ ] Multi-stage build: Node/Circom (Build) -> Rust (Build) -> Debian (Run).
+    - [ ] Include C++ runtime libs (`libgmp`).
+- [ ] **Infrastructure (`terraform/main.tf`)**:
+    - [ ] Add `aws_dynamodb_table`.
+    - [ ] Add `aws_app_runner_service` (or Lambda) for Backend.
+
+## 📅 Week 8: Final Polish & Audit
+- [ ] **Privacy Audit**: Verify "Zero Data Retention" policy implementation.
