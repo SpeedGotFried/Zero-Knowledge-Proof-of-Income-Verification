@@ -55,6 +55,8 @@
     - [x] Scaffolding: React + Vite.
     - [x] UI: "Verify Token" Page.
     - [x] Logic: Upload/Paste Token -> Verify Bank's Signature -> Show "Valid Income" badge.
+- [x] **Developer Tools**:
+    - [x] Script `misc-scripts/run_frontends.sh` to run all apps concurrently.
 
 ## 📅 Week 6: System Integration (✅ COMPLETED)
 - [x] **End-to-End Connection**:
