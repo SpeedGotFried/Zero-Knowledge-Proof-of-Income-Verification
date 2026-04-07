@@ -56,6 +56,29 @@ const Dashboard = () => {
         }
     };
 
+    const handleSend = async () => {
+        try {
+            const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+            const response = await axios.post(`${backendUrl}/verify`, {
+                public_key_hex: "0102030405060708090a",
+                c_income_hex: proof?.c_income_hex || "00",
+                c_used_hex: "00", // Not strictly checked without real tracking
+                c_rent_hex: "00",
+                proof_hex: proof?.proof_hex || "00",
+            });
+
+            if (response.data.success) {
+                alert(`Proof Verified! Tx: ${response.data.data.tx_id}`);
+                setStep('upload');
+            } else {
+                alert(`Verification error: ${response.data.message}`);
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error sending verification request.");
+        }
+    };
+
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 p-8 font-sans">
             <header className="flex justify-between items-center mb-12 border-b border-slate-800 pb-4">
@@ -235,7 +258,10 @@ const Dashboard = () => {
                             </div>
 
                             <div className="flex gap-4">
-                                <button className="flex-1 bg-white text-slate-900 font-bold py-3 rounded-lg hover:bg-slate-200 transition-colors">
+                                <button
+                                    onClick={handleSend}
+                                    className="flex-1 bg-white text-slate-900 font-bold py-3 rounded-lg hover:bg-slate-200 transition-colors"
+                                >
                                     Send to {selectedUseCase === 'bank' ? 'Bank' : 'Landlord'}
                                 </button>
                                 <button

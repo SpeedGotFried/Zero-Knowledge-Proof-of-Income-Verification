@@ -1,10 +1,8 @@
-use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use crate::modules::zkp::ZKProofSystem;
 use bulletproofs::RangeProof; 
-use sha2::{Sha512, Digest};
 use rand::rngs::OsRng;
-use ed25519_dalek::{Signer, SigningKey, Signature};
+use ed25519_dalek::{Signer, SigningKey};
 
 // Simplified Bank Structure
 pub struct Bank {

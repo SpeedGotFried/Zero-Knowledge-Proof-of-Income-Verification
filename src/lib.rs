@@ -45,13 +45,13 @@ pub fn generate_proof(
     let r_b_bytes = hex::decode(rent_blinding_hex).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     let i_bytes_arr: [u8; 32] = i_b_bytes.try_into().map_err(|_| JsValue::from_str("Invalid income blinding length (must be 32 bytes)"))?;
-    let i_blinding = Scalar::from_canonical_bytes(i_bytes_arr).ok_or_else(|| JsValue::from_str("Invalid income scalar"))?;
+    let i_blinding = Option::<Scalar>::from(Scalar::from_canonical_bytes(i_bytes_arr)).ok_or_else(|| JsValue::from_str("Invalid income scalar"))?;
 
     let u_bytes_arr: [u8; 32] = u_b_bytes.try_into().map_err(|_| JsValue::from_str("Invalid used blinding length (must be 32 bytes)"))?;
-    let u_blinding = Scalar::from_canonical_bytes(u_bytes_arr).ok_or_else(|| JsValue::from_str("Invalid used scalar"))?;
+    let u_blinding = Option::<Scalar>::from(Scalar::from_canonical_bytes(u_bytes_arr)).ok_or_else(|| JsValue::from_str("Invalid used scalar"))?;
 
     let r_bytes_arr: [u8; 32] = r_b_bytes.try_into().map_err(|_| JsValue::from_str("Invalid rent blinding length (must be 32 bytes)"))?;
-    let r_blinding = Scalar::from_canonical_bytes(r_bytes_arr).ok_or_else(|| JsValue::from_str("Invalid rent scalar"))?;
+    let r_blinding = Option::<Scalar>::from(Scalar::from_canonical_bytes(r_bytes_arr)).ok_or_else(|| JsValue::from_str("Invalid rent scalar"))?;
 
     let zkp = ZKProofSystem::new();
     let (proof, _) = zkp.prove_available_funds(

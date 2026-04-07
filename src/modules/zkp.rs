@@ -3,7 +3,6 @@ use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::MultiscalarMul;
 use merlin::Transcript;
-use core::ops::Neg;
 
 // Constants for the proof
 const RANGE_BITS: usize = 64; // Proof that value is in [0, 2^64)

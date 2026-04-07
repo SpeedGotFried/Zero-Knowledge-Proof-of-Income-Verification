@@ -12,7 +12,7 @@ pub struct Issuer {
 #[derive(Debug, Clone)]
 pub struct Signature {
     pub s: Scalar,
-    pub R: RistrettoPoint,
+    pub r: RistrettoPoint,
 }
 
 impl Issuer {
@@ -31,11 +31,11 @@ impl Issuer {
     pub fn sign_commitment(&self, commitment: RistrettoPoint) -> Signature {
         let mut rng = OsRng;
         let k = Scalar::random(&mut rng);
-        let R = k * RISTRETTO_BASEPOINT_POINT;
+        let r = k * RISTRETTO_BASEPOINT_POINT;
 
-        // Challenge e = H(R || P || M)
+        // Challenge e = H(r || P || M)
         let mut hasher = Sha512::new();
-        hasher.update(R.compress().as_bytes());
+        hasher.update(r.compress().as_bytes());
         hasher.update(self.public_key.compress().as_bytes());
         hasher.update(commitment.compress().as_bytes());
         
@@ -44,7 +44,7 @@ impl Issuer {
         
         let s = k + e * self.private_key;
 
-        Signature { s, R }
+        Signature { s, r }
     }
 }
 
@@ -55,15 +55,15 @@ pub fn verify_signature(
     signature: &Signature
 ) -> bool {
     let mut hasher = Sha512::new();
-    hasher.update(signature.R.compress().as_bytes());
+    hasher.update(signature.r.compress().as_bytes());
     hasher.update(public_key.compress().as_bytes());
     hasher.update(commitment.compress().as_bytes());
     
     let e = Scalar::from_hash(hasher);
     
     // s * G == R + e * P
-    let sG = signature.s * RISTRETTO_BASEPOINT_POINT;
-    let R_plus_eP = signature.R + (e * public_key);
+    let s_g = signature.s * RISTRETTO_BASEPOINT_POINT;
+    let r_plus_e_p = signature.r + (e * public_key);
 
-    sG == R_plus_eP
+    s_g == r_plus_e_p
 }
