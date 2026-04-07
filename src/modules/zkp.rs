@@ -14,9 +14,13 @@ pub struct ZKProofSystem {
 
 impl ZKProofSystem {
     pub fn new() -> Self {
+        Self::new_with_bits(RANGE_BITS)
+    }
+
+    pub fn new_with_bits(bits: usize) -> Self {
         ZKProofSystem {
             pc_gens: PedersenGens::default(),
-            bp_gens: BulletproofGens::new(RANGE_BITS, 1),
+            bp_gens: BulletproofGens::new(bits, 1),
         }
     }
 
