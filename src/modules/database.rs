@@ -31,14 +31,7 @@ impl DatabaseClient {
         let pk = format!("USER#{}", public_key_hex);
         let sk = "METADATA".to_string();
 
-        self.client
-            .put_item()
-            .table_name(&self.table_name)
-            .item("PK", aws_sdk_dynamodb::types::AttributeValue::S(pk))
-            .item("SK", aws_sdk_dynamodb::types::AttributeValue::S(sk))
-            .item("CreatedAt", aws_sdk_dynamodb::types::AttributeValue::S(chrono::Utc::now().to_rfc3339()))
-            .send()
-            .await?;
+        println!("(STUB) Saving to DB: {} - {}", pk, sk);
 
         Ok(())
     }
@@ -57,16 +50,7 @@ impl DatabaseClient {
         let pk = format!("USER#{}", public_key_hex);
         let sk = format!("TX#{}", transaction_id);
 
-        self.client
-            .put_item()
-            .table_name(&self.table_name)
-            .item("PK", aws_sdk_dynamodb::types::AttributeValue::S(pk))
-            .item("SK", aws_sdk_dynamodb::types::AttributeValue::S(sk))
-            .item("Proof", aws_sdk_dynamodb::types::AttributeValue::S(proof_hex.to_string()))
-            .item("Status", aws_sdk_dynamodb::types::AttributeValue::S(status.to_string()))
-            .item("Helpers", aws_sdk_dynamodb::types::AttributeValue::S("NoSensitiveData".to_string()))
-            .send()
-            .await?;
+        println!("(STUB) Saving Verification to DB: {} - {} - {}", pk, sk, status);
 
         Ok(())
     }

@@ -8,7 +8,6 @@ use tower_http::cors::{Any, CorsLayer};
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
-use curve25519_dalek::ristretto::CompressedRistretto;
 
 mod modules;
 use modules::bank::Bank;
@@ -34,10 +33,8 @@ struct ProveRequest {
 #[derive(Deserialize)]
 struct VerifyRequest {
     public_key_hex: String, // Who is verifying?
-    c_income_hex: String,
-    c_used_hex: String, // For now, this is the threshold commitment usually
-    c_rent_hex: String, // unused in simple threshold model, or passed as 0
-    proof_hex: String,
+    proof_json: String,
+    threshold: u64,
 }
 
 #[derive(Serialize)]
@@ -47,10 +44,24 @@ struct GenericResponse {
     data: Option<serde_json::Value>,
 }
 
+#[derive(Deserialize, Serialize)]
+struct PolicyPayload {
+    threshold: u64,
+}
+
+#[derive(Serialize, Clone)]
+struct PendingProof {
+    id: String,
+    proof_json: String,
+    threshold: u64,
+}
+
 // Shared State
 struct AppState {
     bank: Bank,
     db: DatabaseClient,
+    current_policy: u64,
+    pending_proofs: Vec<PendingProof>,
 }
 
 #[tokio::main]
@@ -62,7 +73,12 @@ async fn main() {
     // "IncomeVerificationTable" is the placeholder name
     let db = DatabaseClient::new("IncomeVerificationTable").await;
 
-    let state = Arc::new(Mutex::new(AppState { bank, db }));
+    let state = Arc::new(Mutex::new(AppState { 
+        bank, 
+        db,
+        current_policy: 50000,
+        pending_proofs: Vec::new(),
+    }));
 
     println!("Starting ZKP Engine & Bank Oracle on port 3000...");
 
@@ -76,6 +92,11 @@ async fn main() {
         .route("/register", post(handle_register)) // Step 1
         .route("/prove", post(handle_prove))       // Step 4 (Ephemeral)
         .route("/verify", post(handle_verify))     // Step 6 (Persistence)
+        .route("/policy", get(get_policy))
+        .route("/policy", post(set_policy))
+        .route("/submit_proof", post(submit_proof))
+        .route("/pending_proofs", get(get_pending_proofs))
+        .route("/clear_proofs", post(clear_proofs))
         .layer(cors)
         .with_state(state);
 
@@ -116,32 +137,15 @@ async fn handle_prove(
     let salary = payload.salary;
     let threshold = payload.threshold;
     
-    // 2. Generate Randomness (Ephemeral)
-    let mut rng = rand::thread_rng();
-    let blinding = curve25519_dalek::scalar::Scalar::random(&mut rng);
-    
-    // 3. Commitments
-    let pc = modules::pedersen::PedersenCommitment::new();
-    let c_income = pc.commit(salary, blinding);
-    let c_income_hex = hex::encode(c_income.compress().as_bytes());
-
-    // 4. Generate Proof
+    // 2. Generate Proof
     let zkp_sys = modules::zkp::ZKProofSystem::new();
-    let used_val = 0u64;
-    let used_blinding = curve25519_dalek::scalar::Scalar::ZERO;
-    let rent_val = threshold;
-    let rent_blinding = curve25519_dalek::scalar::Scalar::ZERO;
     
-    let proof_result = zkp_sys.prove_available_funds(salary, blinding, used_val, used_blinding, rent_val, rent_blinding);
+    let proof_result = zkp_sys.prove_available_funds(salary, threshold);
 
     match proof_result {
-        Ok((proof, _)) => {
-            let proof_bytes = proof.to_bytes();
-            let proof_hex = hex::encode(proof_bytes);
-            
+        Ok(proof_json) => {
             let response_data = serde_json::json!({
-                "proof_hex": proof_hex,
-                "c_income_hex": c_income_hex,
+                "proof_json": proof_json,
                 "threshold": threshold 
             });
 
@@ -161,27 +165,10 @@ async fn handle_verify(
     Json(payload): Json<VerifyRequest>,
 ) -> Json<GenericResponse> {
     
-    // Helper to decode hex
-    let decode_point = |hex_str: &str| -> Result<CompressedRistretto, String> {
-        let bytes = hex::decode(hex_str).map_err(|_| "Invalid Hex".to_string())?;
-        if bytes.len() != 32 { return Err("Invalid Point Length".to_string()); }
-        let arr: [u8; 32] = bytes.try_into().unwrap();
-        Ok(CompressedRistretto(arr))
-    };
-
-    let c_income = match decode_point(&payload.c_income_hex) { Ok(p) => p, Err(e) => return error_response(e) };
-    let c_used = match decode_point(&payload.c_used_hex) { Ok(p) => p, Err(e) => return error_response(e) };
-    let c_rent = match decode_point(&payload.c_rent_hex) { Ok(p) => p, Err(e) => return error_response(e) };
-
-    let proof_bytes = match hex::decode(&payload.proof_hex) {
-        Ok(b) => b,
-        Err(_) => return error_response("Invalid Proof Hex".to_string())
-    };
-
     // 1. Verify Logic (Bank)
     let (signature_result, db_client) = {
         let guard = state.lock().unwrap();
-        let sig = guard.bank.process_verification_request(c_income, c_used, c_rent, &proof_bytes);
+        let sig = guard.bank.process_verification_request(&payload.proof_json, payload.threshold);
         let db = guard.db.clone();
         (sig, db)
     };
@@ -191,7 +178,10 @@ async fn handle_verify(
             // 2. Persistence (Step 7)
             let tx_id = uuid::Uuid::new_v4().to_string();
             
-            match db_client.save_verification_record(&payload.public_key_hex, &tx_id, &payload.proof_hex, "VERIFIED").await {
+            // Just saving a hash or substring of the proof for the DB record
+            let proof_hash = format!("{:x}", md5::compute(&payload.proof_json));
+
+            match db_client.save_verification_record(&payload.public_key_hex, &tx_id, &proof_hash, "VERIFIED").await {
                 Ok(_) => Json(GenericResponse {
                     success: true,
                     message: "Identity Verified & Recorded".to_string(),
@@ -215,3 +205,68 @@ fn error_response(msg: String) -> Json<GenericResponse> {
     })
 }
 
+// --- New Endpoints for Portal Sync ---
+
+async fn get_policy(
+    axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
+) -> Json<GenericResponse> {
+    let policy = state.lock().unwrap().current_policy;
+    Json(GenericResponse {
+        success: true,
+        message: "Policy fetched".to_string(),
+        data: Some(serde_json::json!({ "threshold": policy })),
+    })
+}
+
+async fn set_policy(
+    axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
+    Json(payload): Json<PolicyPayload>,
+) -> Json<GenericResponse> {
+    state.lock().unwrap().current_policy = payload.threshold;
+    Json(GenericResponse {
+        success: true,
+        message: "Policy updated".to_string(),
+        data: None,
+    })
+}
+
+async fn submit_proof(
+    axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
+    Json(payload): Json<VerifyRequest>, // We can reuse VerifyRequest since it has proof_json and threshold
+) -> Json<GenericResponse> {
+    let new_proof = PendingProof {
+        id: uuid::Uuid::new_v4().to_string(),
+        proof_json: payload.proof_json,
+        threshold: payload.threshold,
+    };
+    
+    state.lock().unwrap().pending_proofs.push(new_proof);
+    
+    Json(GenericResponse {
+        success: true,
+        message: "Proof submitted to Bank".to_string(),
+        data: None,
+    })
+}
+
+async fn get_pending_proofs(
+    axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
+) -> Json<GenericResponse> {
+    let proofs = state.lock().unwrap().pending_proofs.clone();
+    Json(GenericResponse {
+        success: true,
+        message: "Fetched pending proofs".to_string(),
+        data: Some(serde_json::json!(proofs)),
+    })
+}
+
+async fn clear_proofs(
+    axum::extract::State(state): axum::extract::State<Arc<Mutex<AppState>>>,
+) -> Json<GenericResponse> {
+    state.lock().unwrap().pending_proofs.clear();
+    Json(GenericResponse {
+        success: true,
+        message: "Cleared proofs".to_string(),
+        data: None,
+    })
+}

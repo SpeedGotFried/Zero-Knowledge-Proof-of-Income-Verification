@@ -48,3 +48,45 @@ output "prover_wallet_url" {
 output "verifier_service_url" {
   value = module.verifier_service.cloudfront_domain_name
 }
+
+# 4. DynamoDB Table for Verification Records
+resource "aws_dynamodb_table" "income_verification_table" {
+  name           = "IncomeVerificationTable-${var.env}"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "PK"
+  range_key      = "SK"
+
+  attribute {
+    name = "PK"
+    type = "S"
+  }
+
+  attribute {
+    name = "SK"
+    type = "S"
+  }
+}
+
+# 5. App Runner for ZKP Engine (Backend)
+resource "aws_apprunner_service" "zkp_engine" {
+  service_name = "zkp-engine-${var.env}"
+
+  source_configuration {
+    image_repository {
+      image_configuration {
+        port = "3000"
+      }
+      image_identifier      = "public.ecr.aws/your-repo/zkp-engine:latest"
+      image_repository_type = "ECR_PUBLIC"
+    }
+  }
+
+  instance_configuration {
+    cpu    = "1024"
+    memory = "2048" # ZKP Generation takes some RAM
+  }
+}
+
+output "zkp_engine_url" {
+  value = aws_apprunner_service.zkp_engine.service_url
+}

@@ -1,6 +1,4 @@
-use curve25519_dalek::ristretto::CompressedRistretto;
 use crate::modules::zkp::ZKProofSystem;
-use bulletproofs::RangeProof; 
 use rand::rngs::OsRng;
 use ed25519_dalek::{Signer, SigningKey};
 
@@ -19,39 +17,26 @@ impl Bank {
             zkp_system: ZKProofSystem::new(),
         }
     }
-
+    
     /// Verifies the Income Proof and signs the commitment if valid.
-    /// Returns (Signature, ApprovalMessage) or Error.
-    /// 
-    /// In a real system, `c_used` would be looked up from a database based on user ID.
-    /// Here we take it as input for demonstration.
     pub fn process_verification_request(
         &self,
-        c_income: CompressedRistretto,
-        c_used: CompressedRistretto,
-        c_rent: CompressedRistretto,
-        proof_bytes: &[u8]
+        proof_json: &str,
+        threshold: u64
     ) -> Result<String, String> {
         
-        // 1. Deserialization
-        // Note: Bulletproofs RangeProof deserialization
-        let proof = RangeProof::from_bytes(proof_bytes)
-            .map_err(|_| "Invalid Proof Format".to_string())?;
-
         // 2. Verify ZKP
-        let valid = self.zkp_system.verify_available_funds(c_income, c_used, c_rent, proof);
+        let valid = self.zkp_system.verify_available_funds(proof_json, threshold);
         
         if valid {
             // 3. Sign the approval
-            // We sign the concatenation of the commitments: H(C_Income || C_Rent)
-            // (Simplified schema)
-            let msg = format!("APPROVED: {:?} paying {:?}", c_income, c_rent);
+            let msg = format!("APPROVED: threshold {}", threshold);
             let signature = self.signing_key.sign(msg.as_bytes());
             
             // Return hex signature
             Ok(hex::encode(signature.to_bytes()))
         } else {
-            Err("Verification Failed: Insufficient Funds".to_string())
+            Err("Verification Failed: Insufficient Funds or Invalid Proof".to_string())
         }
     }
     
